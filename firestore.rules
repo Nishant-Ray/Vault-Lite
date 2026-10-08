@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owner(uid) {
+      // This is the authorization boundary; the public env UID is only a UI check.
+      return request.auth != null && request.auth.uid == uid
+        && uid == 'pNLD2VsobmXhnfnSFycv53HoT0q2';
+    }
+    function cents(value) { return value is int && value >= 0 && value <= 9007199254740991; }
+    function date(value) { return value is string && value.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); }
+    function text(value) { return value is string && value.size() > 0 && value.size() <= 200; }
+    function hasAccount(uid, data) {
+      return data.accountId is string && existsAfter(/databases/$(database)/documents/users/$(uid)/accounts/$(data.accountId));
+    }
+    match /users/{uid}/accounts/{id} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid)
+        && request.resource.data.keys().hasOnly(['id', 'name', 'type', 'last4', 'balanceCents', 'balanceDate', 'minimumCents'])
+        && request.resource.data.id == id && text(request.resource.data.name)
+        && request.resource.data.type in ['bank', 'credit']
+        && request.resource.data.last4 is string && request.resource.data.last4.matches('^([0-9]{4})?$')
+        && request.resource.data.balanceCents is int && request.resource.data.balanceCents >= -9007199254740991 && request.resource.data.balanceCents <= 9007199254740991
+        && cents(request.resource.data.minimumCents) && date(request.resource.data.balanceDate);
+    }
+    match /users/{uid}/expenses/{id} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid)
+        && request.resource.data.keys().hasOnly(['id', 'accountId', 'amountCents', 'date', 'category', 'description'])
+        && request.resource.data.id == id && hasAccount(uid, request.resource.data)
+        && cents(request.resource.data.amountCents) && request.resource.data.amountCents > 0
+        && date(request.resource.data.date) && text(request.resource.data.category) && text(request.resource.data.description);
+    }
+    match /users/{uid}/bills/{id} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid)
+        && request.resource.data.keys().hasOnly(['id', 'accountId', 'amountCents', 'dueDate', 'category', 'name', 'paid'])
+        && request.resource.data.id == id && hasAccount(uid, request.resource.data)
+        && cents(request.resource.data.amountCents) && request.resource.data.amountCents > 0
+        && date(request.resource.data.dueDate) && text(request.resource.data.category) && text(request.resource.data.name)
+        && request.resource.data.paid is bool;
+    }
+  }
+}

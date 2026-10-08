@@ -1,0 +1,45 @@
+@import "tailwindcss";
+@config "../../tailwind.config.ts";
+
+@layer base {
+  body { @apply bg-off_white text-off_black antialiased; font-family: var(--font-outfit), sans-serif; }
+  h1, h2, .font-display { font-family: var(--font-dm-sans), sans-serif; }
+  button, a, input, select { -webkit-tap-highlight-color: transparent; }
+  input, select { @apply min-h-11 w-full min-w-0 rounded-xl border border-gray-300 bg-white px-3 py-2 text-base text-off_black; }
+  button:disabled { @apply cursor-not-allowed opacity-50; }
+  :focus-visible { outline: 2px solid #b91c1c; outline-offset: 3px; }
+  input:focus, select:focus { outline-offset: 1px; }
+}
+@layer components {
+  .btn, .btn-neutral { font-family: var(--font-dm-sans), sans-serif; }
+  .btn { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary_hover; }
+  .btn-neutral { @apply inline-flex min-h-11 items-center justify-center rounded-full bg-gray-100 px-5 py-2.5 text-sm font-semibold transition hover:bg-gray-200; }
+  .icon-btn { @apply inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl hover:bg-gray-100; }
+  .field { @apply flex min-w-0 flex-col gap-2 text-sm font-medium; }
+  .section-title { @apply text-lg font-semibold tracking-tight; }
+  .page-title { @apply text-3xl font-semibold tracking-tight; }
+  .empty { @apply py-8 text-center text-sm text-off_gray; }
+  .notice { @apply rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-900; }
+  .nav-link { @apply flex min-h-11 items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-off_gray hover:bg-gray-50 hover:text-off_black; }
+  .nav-active { @apply bg-red-50 text-primary hover:bg-red-50 hover:text-primary; }
+  .mobile-nav { @apply fixed bottom-0 left-0 right-0 z-30 grid grid-cols-5 border-t border-gray-200 bg-white px-1 pt-2; padding-bottom: max(.5rem, env(safe-area-inset-bottom)); }
+  .mobile-nav .nav-link { @apply flex-col gap-1 rounded-lg px-0 py-2 text-[10px]; }
+  .modal { @apply fixed inset-0 m-auto w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto rounded-2xl bg-white text-off_black shadow-xl; max-height: calc(100dvh - 2rem); }
+  .modal::backdrop { background: rgb(15 23 42 / .45); backdrop-filter: blur(3px); }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
