@@ -9,6 +9,7 @@ import SpendingGraph from '@/app/ui/spendingGraph';
 import { Breakdown } from '@/app/ui/summary';
 import { TransactionList } from '@/app/ui/transactionList';
 import { accountBalance, filterExpenses, money, previousMonth, today, total } from '@/app/lib/finance';
+import { nextBillPayment } from '@/app/lib/bills';
 export default function Dashboard() {
   const { accounts, expenses, bills } = useVault();
   const [month, setMonth] = useState(today().slice(0, 7)); const [accountId, setAccountId] = useState('all'); const [add, setAdd] = useState(false);
@@ -17,7 +18,10 @@ export default function Dashboard() {
   const bankAccounts = accounts.filter(a => a.type === 'bank');
   const cash = bankAccounts.reduce((n, a) => n + accountBalance(a, expenses), 0);
   const debt = accounts.filter(a => a.type === 'credit').reduce((n, a) => n + accountBalance(a, expenses), 0);
-  const upcoming = bills.filter(b => !b.paid && (accountId === 'all' || b.accountId === accountId)).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  const upcoming = bills.flatMap(bill => {
+    const dueDate = nextBillPayment(bill, expenses);
+    return dueDate ? [{ ...bill, dueDate }] : [];
+  }).filter(b => accountId === 'all' || b.accountId === accountId).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   return <>
     <div className="mb-7 flex flex-wrap items-center justify-between gap-4"><div><p className="mb-1 text-sm text-off_gray">A clear view of your finances</p><h1 className="page-title">Your money, at a glance.</h1></div><button className="btn" onClick={() => setAdd(true)}><PlusIcon className="h-5 w-5" />Add expense</button></div>
     {!accounts.length && <div className="notice mb-6">Start by adding a bank account or credit card. <Link href="/wallet" className="font-semibold underline">Open Wallet</Link></div>}

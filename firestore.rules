@@ -25,19 +25,22 @@ service cloud.firestore {
     match /users/{uid}/expenses/{id} {
       allow read, delete: if owner(uid);
       allow create, update: if owner(uid)
-        && request.resource.data.keys().hasOnly(['id', 'accountId', 'amountCents', 'date', 'category', 'description'])
+        && request.resource.data.keys().hasOnly(['id', 'accountId', 'amountCents', 'date', 'category', 'description', 'billId', 'billDueDate'])
         && request.resource.data.id == id && hasAccount(uid, request.resource.data)
         && cents(request.resource.data.amountCents) && request.resource.data.amountCents > 0
-        && date(request.resource.data.date) && text(request.resource.data.category) && text(request.resource.data.description);
+        && date(request.resource.data.date) && text(request.resource.data.category) && text(request.resource.data.description)
+        && ((!('billId' in request.resource.data) && !('billDueDate' in request.resource.data))
+          || (text(request.resource.data.billId) && date(request.resource.data.billDueDate)));
     }
     match /users/{uid}/bills/{id} {
       allow read, delete: if owner(uid);
       allow create, update: if owner(uid)
-        && request.resource.data.keys().hasOnly(['id', 'accountId', 'amountCents', 'dueDate', 'category', 'name', 'paid'])
+        && request.resource.data.keys().hasOnly(['id', 'accountId', 'amountCents', 'dueDate', 'category', 'name', 'paid', 'frequency'])
         && request.resource.data.id == id && hasAccount(uid, request.resource.data)
         && cents(request.resource.data.amountCents) && request.resource.data.amountCents > 0
         && date(request.resource.data.dueDate) && text(request.resource.data.category) && text(request.resource.data.name)
-        && request.resource.data.paid is bool;
+        && request.resource.data.paid is bool
+        && (!('frequency' in request.resource.data) || request.resource.data.frequency in ['once', 'weekly', 'biweekly', 'monthly', 'quarterly', 'yearly']);
     }
   }
 }

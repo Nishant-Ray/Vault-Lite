@@ -3,7 +3,8 @@ import { useEffect, useRef, useState, type ReactNode, type FormEvent } from 'rea
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useVault } from './providers';
 import { accountBalance, accountLabel, reconciledOpeningBalance, toCents, today } from '@/app/lib/finance';
-import { categories, type Account, type Bill, type Expense } from '@/app/lib/types';
+import { categories, type Account, type Bill, type BillFrequency, type Expense } from '@/app/lib/types';
+import { billFrequencies, billScheduleLabel } from '@/app/lib/bills';
 export function Modal({ title, children, close }: { title: string; children: ReactNode; close: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -28,6 +29,7 @@ export function EntryForm({ kind, item, close, selectedAccount }: { kind: 'expen
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const bill = item && 'dueDate' in item ? item : undefined;
   const expense = item && 'date' in item ? item : undefined;
+  const [frequency, setFrequency] = useState<BillFrequency>(bill?.frequency ?? (kind === 'bill' && !item ? 'monthly' : 'once'));
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(''); setBusy(true);
     const data = new FormData(event.currentTarget);
@@ -36,7 +38,7 @@ export function EntryForm({ kind, item, close, selectedAccount }: { kind: 'expen
       if (amountCents <= 0) throw new Error('Amount must be greater than zero.');
       const common = { id: item?.id ?? crypto.randomUUID(), accountId: String(data.get('accountId')), amountCents, category: String(data.get('category')) };
       if (kind === 'expense') await save('expenses', { ...common, date: String(data.get('date')), description: String(data.get('description')).trim() });
-      else await save('bills', { ...common, dueDate: String(data.get('date')), name: String(data.get('description')).trim(), paid: bill?.paid ?? false });
+      else await save('bills', { ...common, dueDate: String(data.get('date')), name: String(data.get('description')).trim(), paid: frequency === 'once' ? bill?.paid ?? false : false, frequency });
       close();
     } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save. Please try again.'); }
     finally { setBusy(false); }
@@ -44,12 +46,35 @@ export function EntryForm({ kind, item, close, selectedAccount }: { kind: 'expen
   return <Modal close={close} title={`${item ? 'Edit' : 'Add'} ${kind}`}><form onSubmit={submit} className="space-y-4">
     {!accounts.length && <p className="notice">Add a bank account or credit card in Wallet first.</p>}
     <label className="field">{kind === 'bill' ? 'Bill name' : 'Description'}<input name="description" maxLength={200} required pattern=".*\S.*" defaultValue={expense?.description ?? bill?.name} placeholder={kind === 'bill' ? 'Electricity bill' : 'Weekly groceries'} autoFocus /></label>
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><label className="field">Amount ($)<input name="amount" inputMode="decimal" type="number" min="0.01" step="0.01" required defaultValue={item ? (item.amountCents / 100).toFixed(2) : undefined} placeholder="0.00" /></label>
-    <label className="field">{kind === 'bill' ? 'Due date' : 'Date'}<input name="date" type="date" required max={kind === 'expense' ? today() : undefined} defaultValue={expense?.date ?? bill?.dueDate ?? today()} /></label></div>
+    {kind === 'bill' && <label className="field">Payment frequency<select value={frequency} onChange={e => setFrequency(e.target.value as BillFrequency)}>{billFrequencies.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}</select></label>}
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><label className="field">{kind === 'bill' ? 'Amount per payment ($)' : 'Amount ($)'}<input name="amount" inputMode="decimal" type="number" min="0.01" step="0.01" required defaultValue={item ? (item.amountCents / 100).toFixed(2) : undefined} placeholder="0.00" /></label>
+    <label className="field">{kind === 'bill' ? frequency === 'once' ? 'Payment due date' : 'First scheduled payment' : 'Date'}<input name="date" type="date" required max={kind === 'expense' ? today() : undefined} defaultValue={expense?.date ?? bill?.dueDate ?? today()} /></label></div>
+    {kind === 'bill' && frequency !== 'once' && <p className="text-sm text-off_gray">The first payment date sets your repeating schedule. Monthly payments use the same day each month, or the last day of a shorter month. Start with your next unpaid payment; you don’t need to enter old payments.</p>}
     <label className="field">Pay with<AccountSelect defaultValue={item?.accountId ?? (selectedAccount === 'all' ? '' : selectedAccount)} /></label>
     <label className="field">Category<select name="category" defaultValue={item?.category ?? categories[0]}>{categories.map(c => <option key={c}>{c}</option>)}</select></label>
     {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
     <div className="flex justify-end gap-3 pt-2"><button type="button" className="btn-neutral" onClick={close} disabled={busy}>Cancel</button><button className="btn" disabled={busy || !accounts.length}>{busy ? 'Saving…' : 'Save'}</button></div>
+  </form></Modal>;
+}
+export function BillPaymentForm({ bill, dueDate, close }: { bill: Bill; dueDate: string; close: () => void }) {
+  const { payBill } = useVault();
+  const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setError('');
+    const data = new FormData(event.currentTarget);
+    try {
+      const amountCents = toCents(String(data.get('amount')));
+      if (amountCents <= 0) throw new Error('Amount must be greater than zero.');
+      await payBill(bill, { dueDate, date: String(data.get('date')), amountCents, accountId: String(data.get('accountId')) });
+      close();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not record payment.'); } finally { setBusy(false); }
+  }
+  return <Modal title={`Record payment: ${bill.name}`} close={close}><form onSubmit={submit} className="space-y-4">
+    <p className="text-sm text-off_gray">Scheduled for {dueDate} · {billScheduleLabel(bill)}. Recording this payment adds an expense and updates your tracked account balance.</p>
+    <div className="grid gap-4 sm:grid-cols-2"><label className="field">Actual amount ($)<input name="amount" type="number" min="0.01" step="0.01" inputMode="decimal" required defaultValue={(bill.amountCents / 100).toFixed(2)} /></label><label className="field">Date paid<input name="date" type="date" required max={today()} defaultValue={today()} /></label></div>
+    <label className="field">Paid from<AccountSelect defaultValue={bill.accountId} /></label>
+    {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+    <div className="flex justify-end gap-3"><button type="button" className="btn-neutral" onClick={close} disabled={busy}>Cancel</button><button className="btn" disabled={busy}>{busy ? 'Recording…' : 'Record payment'}</button></div>
   </form></Modal>;
 }
 export function AccountForm({ account, close }: { account?: Account; close: () => void }) {

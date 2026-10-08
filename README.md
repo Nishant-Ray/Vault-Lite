@@ -18,7 +18,7 @@ Open http://localhost:3000. The app uses email/password login for a single user,
 - Add, edit, and delete expenses, with payment account, category, description, and date.
 - Monthly totals, average expense, prior-month comparison, yearly chart, category percentages, and account/card breakdowns. Filter by month, card/bank account, category, and description; export filtered spending to CSV.
 - Bank and credit-card accounts with nicknames and optional last four digits. Bank balances decrease with expenses; card amounts owed increase. Set a per-bank safety buffer for low-balance alerts.
-- Add and edit bills, see overdue dates, filter by account/status, and mark paid. Payment creates one expense and marks the bill paid in a Firestore transaction; repeated payment cannot duplicate it. Delete a linked payment expense to make its bill unpaid again. Deleting a paid bill keeps its expense history.
+- One-time and recurring bills with weekly, every-two-weeks, monthly, quarterly, and yearly schedules. Set the amount per payment and first scheduled date, see the next unpaid date, and filter by account or payment history. Record the actual amount, date, and paying account; each payment becomes an expense through a Firestore transaction that prevents duplicates for the same occurrence. Deleting a payment makes that occurrence unpaid again. Deleting a schedule keeps recorded expenses.
 - JSON data export, logout, responsive sidebar on desktop, bottom navigation on phones, touch-friendly forms, and keyboard-accessible dialogs.
 - Installable PWA with manifest, PNG icons, Apple home-screen metadata, service worker, and an offline fallback.
 
@@ -28,7 +28,9 @@ There is **no bank integration**. An account's saved balance is its balance at t
 
 Reconcile in Wallet after deposits, refunds, transfers, or credit-card payments. When editing an existing account, enter the **current balance** shown by your bank or card. The app resets the balance date to today and automatically accounts for today's already-logged expenses so they are not counted again. Your expense history remains intact. Credit-card statement payments are transfers rather than new spending: reconcile bank and card balances instead of recording another expense. Account type is fixed after creation; accounts with history cannot be deleted in the UI.
 
-Amounts are stored as integer cents; currency is USD. Expenses cannot be future-dated in the entry form. Bills are one-off entries; there is no automatic recurring billing or external payment processing.
+Amounts are stored as integer cents; currency is USD. Expenses cannot be future-dated in the entry form. Recurring bills are schedules: they do not change balances until you record a payment, and they do not initiate payments with a bank.
+
+The first payment date anchors the recurring schedule. Monthly and quarterly bills keep the original day, using the last day of shorter months. A yearly bill starting February 29 falls on February 28 in non-leap years and February 29 in leap years. Start a schedule at your next unpaid payment so you do not need to import old payments. Existing bills remain one-time bills until you edit their frequency. Monthly commitment totals are estimates: weekly bills use 52 payments per year and every-two-weeks bills use 26.
 
 ## Data layout
 

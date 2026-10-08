@@ -3,8 +3,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 import { collection, doc, onSnapshot, runTransaction, setDoc, writeBatch } from 'firebase/firestore';
 import { allowedUid, firebase, firebaseConfigured } from '@/app/lib/firebase';
-import type { Account, Bill, Expense } from '@/app/lib/types';
-import { today } from '@/app/lib/finance';
+import type { Account, Bill, BillPayment, Expense } from '@/app/lib/types';
 
 type CollectionName = 'accounts' | 'expenses' | 'bills';
 type VaultContext = {
@@ -14,7 +13,7 @@ type VaultContext = {
   logout: () => Promise<void>;
   save: (name: CollectionName, data: Account | Bill | Expense) => Promise<void>;
   remove: (name: CollectionName, id: string) => Promise<void>;
-  payBill: (bill: Bill) => Promise<void>;
+  payBill: (bill: Bill, payment: BillPayment) => Promise<void>;
 };
 const Context = createContext<VaultContext | null>(null);
 export const useVault = () => {
@@ -84,26 +83,36 @@ export function Providers({ children }: { children: ReactNode }) {
     }
     const batch = writeBatch(firebase().db);
     batch.delete(reference(name, id));
-    // A bill payment is represented by exactly one linked expense.
-    // Deleting the paid bill keeps its expense as spending history.
+    // Removing a payment restores that occurrence. Recurring schedules derive
+    // unpaid dates from expense history; one-time bills also reset their flag.
     if (name === 'expenses' && id.startsWith('bill-')) {
-      const billId = id.slice(5);
-      if (bills.some(b => b.id === billId)) batch.update(reference('bills', billId), { paid: false });
+      const expense = expenses.find(e => e.id === id);
+      const billId = expense?.billId ?? id.slice(5);
+      const bill = bills.find(b => b.id === billId);
+      if (bill && (bill.frequency ?? 'once') === 'once') batch.update(reference('bills', billId), { paid: false });
     }
     await batch.commit();
   };
-  const payBill = async (bill: Bill) => {
+  const payBill = async (bill: Bill, payment: BillPayment) => {
     await runTransaction(firebase().db, async tx => {
       const billRef = reference('bills', bill.id);
       const snapshot = await tx.get(billRef);
       if (!snapshot.exists()) throw new Error('Bill no longer exists.');
       const current = snapshot.data() as Bill;
-      if (current.paid) return;
-      const account = await tx.get(reference('accounts', current.accountId));
+      if (current.dueDate !== bill.dueDate || (current.frequency ?? 'once') !== (bill.frequency ?? 'once') || current.amountCents !== bill.amountCents || current.accountId !== bill.accountId) throw new Error('This bill changed. Close this dialog and record the payment again.');
+      const recurring = (current.frequency ?? 'once') !== 'once';
+      if (!recurring && current.paid) return;
+      // Each scheduled occurrence has one stable expense ID, so repeated clicks
+      // and concurrent payments cannot create duplicate spending.
+      const expenseId = `bill-${bill.id}-${payment.dueDate}`;
+      const expenseRef = reference('expenses', expenseId);
+      const existing = await tx.get(expenseRef);
+      if (existing.exists()) return;
+      const account = await tx.get(reference('accounts', payment.accountId));
       if (!account.exists()) throw new Error('Choose an existing account for this bill.');
-      const expense: Expense = { id: `bill-${bill.id}`, accountId: current.accountId, amountCents: current.amountCents, date: today(), category: current.category, description: current.name };
-      tx.set(reference('expenses', expense.id), expense);
-      tx.update(billRef, { paid: true });
+      const expense: Expense = { id: expenseId, billId: bill.id, billDueDate: payment.dueDate, accountId: payment.accountId, amountCents: payment.amountCents, date: payment.date, category: current.category, description: current.name };
+      tx.set(expenseRef, expense);
+      if (!recurring) tx.update(billRef, { paid: true });
     });
   };
   return <Context.Provider value={{ user, loading, dataLoading, configured: firebaseConfigured, error, accounts, expenses, bills,

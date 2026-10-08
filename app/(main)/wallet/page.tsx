@@ -26,7 +26,7 @@ export default function Wallet() {
         <p className="text-xs text-off_gray">{type === 'bank' ? 'Available balance' : 'Tracked amount owed'}</p><p className={`mb-4 mt-1 font-display text-3xl font-semibold tabular-nums ${low ? 'text-red-700' : ''}`}>{money(balance)}</p>
         {low && <p className="mb-4 rounded-lg bg-red-50 p-2 text-xs text-red-700">Below your {money(account.minimumCents)} safety buffer</p>}
         <div className="space-y-2 text-xs text-off_gray"><p>This month’s expenses: <span className="font-medium text-off_black">{money(monthSpent)}</span></p><p>Opening balance: {money(account.balanceCents)} · {account.balanceDate}</p></div>
-        <div className="mt-5 flex flex-wrap gap-2"><button className="btn-neutral" onClick={() => setEdit(account)}>Reconcile / edit</button><button className="icon-btn text-red-700" disabled={used} title={used ? 'Account has expense or bill history' : 'Delete account'} aria-label={`Delete ${account.name}`} onClick={() => void deleteAccount(account)}>×</button></div>
+        <div className="mt-5 flex flex-wrap gap-2"><button className="btn-neutral" onClick={() => setEdit(account)}>Edit</button><button className="icon-btn text-red-700" disabled={used} title={used ? 'Account has expense or bill history' : 'Delete account'} aria-label={`Delete ${account.name}`} onClick={() => void deleteAccount(account)}>×</button></div>
       </Card>;
     })}</div></section>)}
     {edit !== undefined && <AccountForm account={edit ?? undefined} close={() => setEdit(undefined)} />}
