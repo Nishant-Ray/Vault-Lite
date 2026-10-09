@@ -7,8 +7,10 @@ export const bankId = (value: string) => createHash('sha256').update(value).dige
 export function plaid() {
   const clientId = process.env.PLAID_CLIENT_ID;
   const secret = process.env.PLAID_SECRET;
-  const environment = process.env.PLAID_ENV ?? 'sandbox';
-  if (!clientId || !secret || !['sandbox', 'production'].includes(environment)) throw new ApiError('Bank connections are not configured.', 503);
+  const environment = process.env.PLAID_ENV?.trim() ?? 'sandbox';
+  if (!clientId?.trim()) throw new ApiError('Missing PLAID_CLIENT_ID in the server environment. Add it, then restart locally or redeploy on Vercel.', 503);
+  if (!secret?.trim()) throw new ApiError('Missing PLAID_SECRET in the server environment. Add it, then restart locally or redeploy on Vercel.', 503);
+  if (!['sandbox', 'production'].includes(environment)) throw new ApiError('PLAID_ENV must be sandbox or production. dev is not a supported Plaid environment. Restart locally or redeploy after changing it.', 503);
   return new PlaidApi(new Configuration({ basePath: PlaidEnvironments[environment], baseOptions: {
     timeout: 20000, headers: { 'PLAID-CLIENT-ID': clientId, 'PLAID-SECRET': secret },
   } }));

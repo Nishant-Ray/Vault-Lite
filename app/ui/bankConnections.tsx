@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { usePlaidLink } from 'react-plaid-link';
-import { ArrowPathIcon, LinkIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, BuildingLibraryIcon, LinkIcon } from '@heroicons/react/24/outline';
 import { bankRequest } from '@/app/lib/bank-client';
 import type { BankConnection, BankReview, BankStatus } from '@/app/lib/plaid-types';
 import { accountLabel, money, today } from '@/app/lib/finance';
@@ -71,23 +71,24 @@ export default function BankConnections() {
     catch (e) { setError(e instanceof Error ? e.message : 'Could not complete bank request.'); }
     finally { setBusy(false); }
   }
-  return <div className="mb-8"><Card>
-    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="section-title">Connected banks</h2><button className="btn-neutral gap-2" disabled={busy || loading} onClick={() => void startLink()}><LinkIcon className="h-5 w-5" />{busy ? 'Working...' : 'Connect bank'}</button></div>
-    <p className="mt-3 text-sm leading-relaxed text-off_gray">Connect your existing accounts to import posted purchases and show bank-reported balances. Sync runs daily, and you can sync here anytime. Bank data may take time to update; pending purchases are not imported.</p>
+  return <div className="mb-8"><Card className="rounded-2xl border border-gray-200/80">
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex min-w-0 items-center gap-3"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-primary"><BuildingLibraryIcon className="h-6 w-6" aria-hidden="true" /></div><div><h2 className="section-title">Connected banks</h2>{!loading && !!status.connections.length && <p className="mt-1 text-xs text-off_gray">{status.connections.length} {status.connections.length === 1 ? 'bank' : 'banks'} linked</p>}</div></div>
+      <button className="btn w-full sm:w-auto" disabled={busy || loading} onClick={() => void startLink()}>{busy ? <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white motion-safe:animate-spin" aria-hidden="true" /> : <LinkIcon className="h-4 w-4" aria-hidden="true" />}{busy ? 'Working...' : 'Connect bank'}</button>
+    </div>
     {error && <p className="notice mt-4" role="alert">{error}</p>}
     {message && <p className="mt-4 text-sm text-green-800" role="status">{message}</p>}
-    {loading && <p role="status" className="mt-4 text-sm text-off_gray">Loading bank connections...</p>}
-    <ul className="mt-4 divide-y divide-gray-100">{status.connections.map(item => <li key={item.id} className="py-4">
-      <p className="font-semibold">{item.name}</p>
-      <p className="mt-1 text-xs text-off_gray">{item.status === 'unconfigured' ? 'Choose accounts to finish connecting' : item.lastSyncedAt ? `Last synced ${new Date(item.lastSyncedAt).toLocaleString()}` : 'Ready for first sync'}</p>
+    {loading && <div role="status" aria-label="Loading connected banks" className="mt-5 space-y-3"><span className="sr-only">Loading connected banks</span>{[0, 1].map(row => <div key={row} aria-hidden="true" className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4"><div className="flex items-center gap-3"><div className="bank-skeleton h-10 w-10 shrink-0 rounded-xl" /><div className="min-w-0 flex-1 space-y-2"><div className="bank-skeleton h-3.5 w-32 max-w-full rounded-full" /><div className="bank-skeleton h-2.5 w-48 max-w-full rounded-full" /></div></div><div className="mt-4 flex gap-2"><div className="bank-skeleton h-8 w-24 rounded-full" /><div className="bank-skeleton h-8 w-24 rounded-full" /></div></div>)}</div>}
+    {!loading && !!status.connections.length && <ul className="mt-5 space-y-3">{status.connections.map(item => <li key={item.id} className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="break-words font-semibold">{item.name}</p><p className="mt-1.5 text-xs text-off_gray">{item.status === 'unconfigured' ? 'Choose accounts to finish connecting' : item.lastSyncedAt ? `Last synced ${new Date(item.lastSyncedAt).toLocaleString()}` : 'Ready for first sync'}</p></div><span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${item.error || item.status === 'unconfigured' ? 'bg-amber-50 text-amber-800' : 'bg-green-50 text-green-800'}`}><span className={`h-1.5 w-1.5 rounded-full ${item.error || item.status === 'unconfigured' ? 'bg-amber-500' : 'bg-green-500'}`} aria-hidden="true" />{item.error ? 'Needs attention' : item.status === 'unconfigured' ? 'Finish setup' : 'Connected'}</span></div>
       {item.error && <p className="mt-2 text-sm text-red-700">{item.error}</p>}
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         {item.status === 'unconfigured' ? <button className="btn-neutral" disabled={busy} onClick={() => setConfigure(item)}>Choose accounts</button> : <button className="btn-neutral gap-2" disabled={busy} onClick={() => void act({ action: 'sync', itemId: item.id }, 'Synced the latest data available from your bank.')}><ArrowPathIcon className={`h-4 w-4 ${busy ? 'motion-safe:animate-spin' : ''}`} />Sync now</button>}
         <button className="btn-neutral" disabled={busy} onClick={() => void startLink(item.id)}>Reconnect</button>
-        <button className="btn-neutral text-red-700" disabled={busy} onClick={() => { if (window.confirm(`Disconnect ${item.name}? Existing expenses stay saved. Wallet balances will return to manual tracking. Reconnecting later consumes another trial connection.`)) void act({ action: 'disconnect', itemId: item.id }, 'Bank disconnected. Your expense history is unchanged.'); }}>Disconnect</button>
+        <button className="inline-flex min-h-11 items-center justify-center rounded-full px-3 text-sm font-medium text-off_gray transition hover:bg-red-50 hover:text-red-700" disabled={busy} onClick={() => { if (window.confirm(`Disconnect ${item.name}? Existing expenses stay saved. Wallet balances will return to manual tracking. Reconnecting later consumes another trial connection.`)) void act({ action: 'disconnect', itemId: item.id }, 'Bank disconnected. Your expense history is unchanged.'); }}>Disconnect</button>
       </div>
-    </li>)}</ul>
-    {!loading && !status.connections.length && !error && <p className="mt-4 text-sm text-off_gray">Your manual accounts remain available. Match them when you connect a bank.</p>}
+    </li>)}</ul>}
+    {!loading && !status.connections.length && !error && <div className="mt-5 flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-200 bg-gray-50/70 px-4 py-7"><LinkIcon className="h-7 w-7 text-gray-400" aria-hidden="true" /><p className="text-sm text-off_gray">No banks connected yet</p></div>}
   </Card>
     {!!status.review.length && <div className="mt-4"><Card><h2 className="section-title">Purchases to review ({status.review.length})</h2><p className="mt-2 text-sm text-off_gray">These may match expenses you already recorded. Match an existing expense, import as a separate purchase, or ignore it. Review shows up to 100 purchases per bank at a time.</p><ul className="mt-4 divide-y divide-gray-100">{status.review.map(row => <ReviewRow key={`${row.itemId}-${row.id}`} row={row} busy={busy} act={act} />)}</ul></Card></div>}
     {configure && <ConfigureBank item={configure} close={() => setConfigure(null)} done={async () => {

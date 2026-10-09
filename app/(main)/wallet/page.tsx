@@ -16,7 +16,6 @@ export default function Wallet() {
   }
   return <>
     <div className="mb-6 flex flex-wrap items-center justify-between gap-4"><div><h1 className="page-title">Wallet</h1><p className="mt-2 text-sm text-off_gray">Know your cash. Keep your cards in check.</p></div><button className="btn" onClick={() => setEdit(null)}><PlusIcon className="h-5 w-5" />Add account</button></div>
-    <p className="mb-6 max-w-2xl text-sm leading-relaxed text-off_gray">Connected accounts show the latest balance reported by your bank. Manual accounts use an opening balance and your logged expenses; reconcile them after deposits, transfers, refunds, or card payments.</p>
     <BankConnections />
     {error && <p className="notice mb-6" role="alert">{error}</p>}
     {!accounts.length && <Card><p className="empty">Add your first bank account or credit card to start tracking.</p></Card>}

@@ -27,7 +27,10 @@
   .mobile-nav .nav-link { @apply flex-col gap-1 rounded-lg px-0 py-2 text-[10px]; }
   .modal { @apply fixed inset-0 m-auto w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto rounded-2xl bg-white text-off_black shadow-xl; max-height: calc(100dvh - 2rem); }
   .modal::backdrop { background: rgb(15 23 42 / .45); backdrop-filter: blur(3px); }
+  .bank-skeleton { position: relative; overflow: hidden; background: #e5e7eb; }
+  .bank-skeleton::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgb(255 255 255 / .75), transparent); animation: bank-shimmer 1.6s ease-in-out infinite; }
 }
+@keyframes bank-shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
 input[type='number'] {
