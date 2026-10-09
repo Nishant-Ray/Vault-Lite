@@ -8,11 +8,15 @@ export default function Login() {
   const router = useRouter();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (user) router.replace('/dashboard'); }, [user, router]);
+  function destination() {
+    const next = new URLSearchParams(window.location.search).get('next');
+    return next?.startsWith('/wallet?') ? next : '/dashboard';
+  }
+  useEffect(() => { if (user) router.replace(destination()); }, [user, router]);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(''); setBusy(true);
     const data = new FormData(event.currentTarget);
-    try { await login(String(data.get('email')), String(data.get('password'))); router.replace('/dashboard'); }
+    try { await login(String(data.get('email')), String(data.get('password'))); router.replace(destination()); }
     catch { setError('Unable to sign in. Check your email, password, access, and connection.'); }
     finally { setBusy(false); }
   }

@@ -15,6 +15,11 @@ export default function Spending() {
   const [edit, setEdit] = useState<Expense | null | undefined>(); const [error, setError] = useState('');
   const filtered = filterExpenses(expenses, month, accountId).filter(e => (category === 'all' || e.category === category) && e.description.toLowerCase().includes(search.toLowerCase()));
   async function deleteExpense(expense: Expense) {
+    if (expense.plaidTransactionId) {
+      if (!window.confirm(`Remove "${expense.description}" from spending? This bank purchase will stay ignored on future syncs. Your bank-reported balance will not change.${expense.billId ? ' Its bill will become unpaid again.' : ''}`)) return;
+      try { await remove('expenses', expense.id); setError(''); } catch (e) { setError(e instanceof Error ? e.message : 'Could not remove bank purchase.'); }
+      return;
+    }
     if (!window.confirm(`Delete “${expense.description}”?${expense.id.startsWith('bill-') ? ' Its bill will become unpaid again.' : ''}`)) return;
     try { await remove('expenses', expense.id); setError(''); } catch { setError('Could not delete expense. Try again.'); }
   }

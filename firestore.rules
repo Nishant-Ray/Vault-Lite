@@ -13,8 +13,14 @@ service cloud.firestore {
       return data.accountId is string && existsAfter(/databases/$(database)/documents/users/$(uid)/accounts/$(data.accountId));
     }
     match /users/{uid}/accounts/{id} {
-      allow read, delete: if owner(uid);
+      allow read: if owner(uid);
+      allow delete: if owner(uid) && !('plaidItemId' in resource.data);
+      // Only the authenticated server may create or modify bank metadata.
+      allow update: if owner(uid) && ('plaidItemId' in resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'minimumCents'])
+        && text(request.resource.data.name) && cents(request.resource.data.minimumCents);
       allow create, update: if owner(uid)
+        && (!exists(/databases/$(database)/documents/users/$(uid)/accounts/$(id)) || !('plaidItemId' in resource.data))
         && request.resource.data.keys().hasOnly(['id', 'name', 'type', 'last4', 'balanceCents', 'balanceDate', 'minimumCents'])
         && request.resource.data.id == id && text(request.resource.data.name)
         && request.resource.data.type in ['bank', 'credit']
@@ -23,14 +29,27 @@ service cloud.firestore {
         && cents(request.resource.data.minimumCents) && date(request.resource.data.balanceDate);
     }
     match /users/{uid}/expenses/{id} {
-      allow read, delete: if owner(uid);
+      allow read: if owner(uid);
+      allow delete: if owner(uid) && !('plaidTransactionId' in resource.data);
       allow create, update: if owner(uid)
+        && (!exists(/databases/$(database)/documents/users/$(uid)/expenses/$(id)) || !('plaidTransactionId' in resource.data))
         && request.resource.data.keys().hasOnly(['id', 'accountId', 'amountCents', 'date', 'category', 'description', 'billId', 'billDueDate'])
         && request.resource.data.id == id && hasAccount(uid, request.resource.data)
         && cents(request.resource.data.amountCents) && request.resource.data.amountCents > 0
         && date(request.resource.data.date) && text(request.resource.data.category) && text(request.resource.data.description)
         && ((!('billId' in request.resource.data) && !('billDueDate' in request.resource.data))
           || (text(request.resource.data.billId) && date(request.resource.data.billDueDate)));
+    }
+    // Access tokens and sync state are only accessible through the Admin SDK.
+    // Server routes verify a Firebase ID token and the allowed owner's UID.
+    match /users/{uid}/plaidItems/{document=**} {
+      allow read, write: if false;
+    }
+    match /users/{uid}/plaidInstitutions/{document=**} {
+      allow read, write: if false;
+    }
+    match /users/{uid}/plaidLinkSessions/{document=**} {
+      allow read, write: if false;
     }
     match /users/{uid}/bills/{id} {
       allow read, delete: if owner(uid);

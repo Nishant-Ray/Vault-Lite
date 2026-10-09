@@ -26,7 +26,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     setPendingPath(href);
     startTransition(() => router.push(href));
   };
-  useEffect(() => { if (!loading && !user) router.replace('/login'); }, [user, loading, router]);
+  useEffect(() => {
+    if (!loading && !user) {
+      const returningFromBank = pathname === '/wallet' && new URLSearchParams(window.location.search).has('oauth_state_id');
+      router.replace(returningFromBank ? `/login?next=${encodeURIComponent(pathname + window.location.search)}` : '/login');
+    }
+  }, [user, loading, router, pathname]);
   if (loading || !user) return <div role="status" className="grid min-h-dvh place-items-center text-off_gray">Opening your vault…</div>;
   const links = pages.map(page => <Link key={page.href} href={page.href} prefetch onNavigate={event => { event.preventDefault(); navigate(page.href); }} aria-current={activePath === page.href ? 'page' : undefined} className={clsx('nav-link', activePath === page.href && 'nav-active')}><page.icon className="h-5 w-5 shrink-0" /><span>{page.name}</span></Link>);
   return <div className="min-h-dvh">

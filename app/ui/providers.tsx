@@ -1,7 +1,8 @@
 'use client';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
-import { collection, doc, onSnapshot, runTransaction, setDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, onSnapshot, runTransaction, writeBatch } from 'firebase/firestore';
+import { bankRequest } from '@/app/lib/bank-client';
 import { allowedUid, firebase, firebaseConfigured } from '@/app/lib/firebase';
 import type { Account, Bill, BillPayment, Expense } from '@/app/lib/types';
 
@@ -67,8 +68,21 @@ export function Providers({ children }: { children: ReactNode }) {
     return doc(firebase().db, 'users', user.uid, name, id);
   };
   const save = async (name: CollectionName, data: Account | Bill | Expense) => {
-    if (name === 'accounts') { await setDoc(reference(name, data.id), data); return; }
+    if (name === 'accounts') {
+      const account = data as Account;
+      await runTransaction(firebase().db, async tx => {
+        const ref = reference(name, account.id);
+        const current = await tx.get(ref);
+        if (current.data()?.plaidItemId) tx.update(ref, { name: account.name, minimumCents: account.minimumCents });
+        else tx.set(ref, account);
+      });
+      return;
+    }
     const item = data as Expense | Bill;
+    if (name === 'expenses' && expenses.find(e => e.id === item.id)?.plaidTransactionId) {
+      const expense = data as Expense;
+      await bankRequest({ action: 'edit-expense', expenseId: item.id, description: expense.description, category: expense.category }); return;
+    }
     // Read the account in the same transaction so concurrent deletion cannot
     // create an expense or bill referencing an account that no longer exists.
     await runTransaction(firebase().db, async tx => {
@@ -78,7 +92,11 @@ export function Providers({ children }: { children: ReactNode }) {
     });
   };
   const remove = async (name: CollectionName, id: string) => {
+    if (name === 'expenses' && expenses.find(e => e.id === id)?.plaidTransactionId) {
+      await bankRequest({ action: 'ignore-expense', expenseId: id }); return;
+    }
     if (name === 'accounts') {
+      if (accounts.find(a => a.id === id)?.plaidItemId) throw new Error('Disconnect this bank before deleting the account.');
       if (expenses.some(e => e.accountId === id) || bills.some(b => b.accountId === id)) throw new Error('This account has expenses or bills. Keep it for historical reporting.');
     }
     const batch = writeBatch(firebase().db);
@@ -94,6 +112,9 @@ export function Providers({ children }: { children: ReactNode }) {
     await batch.commit();
   };
   const payBill = async (bill: Bill, payment: BillPayment) => {
+    if (payment.expenseId) {
+      await bankRequest({ action: 'link-bill', billId: bill.id, dueDate: payment.dueDate, expenseId: payment.expenseId }); return;
+    }
     await runTransaction(firebase().db, async tx => {
       const billRef = reference('bills', bill.id);
       const snapshot = await tx.get(billRef);

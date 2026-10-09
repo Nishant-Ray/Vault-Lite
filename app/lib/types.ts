@@ -6,6 +6,10 @@ export type Account = {
   balanceCents: number;
   balanceDate: string;
   minimumCents: number;
+  plaidItemId?: string;
+  plaidAccountId?: string;
+  plaidBalanceCents?: number;
+  plaidBalanceUpdatedAt?: string;
 };
 export type Expense = {
   id: string;
@@ -16,6 +20,8 @@ export type Expense = {
   description: string;
   billId?: string;
   billDueDate?: string;
+  plaidTransactionId?: string;
+  plaidItemId?: string;
 };
 export type BillFrequency = 'once' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly';
 export type Bill = {
@@ -29,6 +35,7 @@ export type Bill = {
   frequency?: BillFrequency;
 };
 export type BillPayment = {
+  expenseId?: string;
   dueDate: string;
   date: string;
   accountId: string;

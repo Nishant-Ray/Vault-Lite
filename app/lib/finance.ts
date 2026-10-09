@@ -25,6 +25,9 @@ export function breakdown(expenses: Expense[], key: 'category' | 'accountId') {
 // The reconciled balance is the opening balance for this date; all expenses on
 // or after it count. Earlier expenses remain in spending reports only.
 export function accountBalance(account: Account, expenses: Expense[]) {
+  // Bank snapshots already include purchases, transfers and card payments.
+  // Never apply local expenses to them again.
+  if (account.plaidItemId && account.plaidBalanceCents !== undefined) return account.plaidBalanceCents;
   const spent = total(expenses.filter(e => e.accountId === account.id && e.date >= account.balanceDate && e.date <= today()));
   return account.balanceCents + (account.type === 'bank' ? -spent : spent);
 }
