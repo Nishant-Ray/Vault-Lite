@@ -9,7 +9,7 @@ import PageLoading from '@/app/ui/pageLoading';
 const pages = [
   { name: 'Dashboard', href: '/dashboard', icon: Squares2X2Icon },
   { name: 'Spending', href: '/spending', icon: BanknotesIcon },
-  { name: 'Wallet', href: '/wallet', icon: CreditCardIcon },
+  { name: 'Accounts', href: '/wallet', icon: CreditCardIcon },
   { name: 'Bills', href: '/bills', icon: DocumentCurrencyDollarIcon },
   { name: 'Settings', href: '/settings', icon: Cog8ToothIcon },
 ];

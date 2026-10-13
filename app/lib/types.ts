@@ -1,32 +1,20 @@
-export type Account = {
-  id: string;
-  name: string;
-  type: 'bank' | 'credit';
-  last4: string;
-  balanceCents: number;
-  balanceDate: string;
-  minimumCents: number;
-  plaidItemId?: string;
-  plaidAccountId?: string;
-  plaidBalanceCents?: number;
-  plaidBalanceUpdatedAt?: string;
-};
 export type Expense = {
   id: string;
-  accountId: string;
+  /** Personal share in cents; negative values are personal refunds. */
   amountCents: number;
   date: string;
   category: string;
   description: string;
   billId?: string;
   billDueDate?: string;
+  /** Import provenance only; expenses have no payment-account relationship. */
   plaidTransactionId?: string;
   plaidItemId?: string;
+  bankAmountCents?: number;
 };
 export type BillFrequency = 'once' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly';
 export type Bill = {
   id: string;
-  accountId: string;
   amountCents: number;
   dueDate: string;
   category: string;
@@ -34,11 +22,5 @@ export type Bill = {
   paid: boolean;
   frequency?: BillFrequency;
 };
-export type BillPayment = {
-  expenseId?: string;
-  dueDate: string;
-  date: string;
-  accountId: string;
-  amountCents: number;
-};
+export type BillPayment = { expenseId?: string; dueDate: string; date: string; amountCents: number };
 export const categories = ['Groceries', 'Dining', 'Transportation', 'Shopping', 'Rent', 'Utilities', 'Insurance', 'Medical', 'Entertainment', 'Travel', 'Fitness', 'Misc.'];

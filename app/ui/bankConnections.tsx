@@ -3,8 +3,8 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { usePlaidLink } from 'react-plaid-link';
 import { ArrowPathIcon, BuildingLibraryIcon, LinkIcon } from '@heroicons/react/24/outline';
 import { bankRequest } from '@/app/lib/bank-client';
-import type { BankConnection, BankReview, BankStatus } from '@/app/lib/plaid-types';
-import { accountLabel, money, today } from '@/app/lib/finance';
+import type { BankConnection, BankStatus } from '@/app/lib/plaid-types';
+import { today } from '@/app/lib/finance';
 import { useVault } from './providers';
 import { Modal } from './forms';
 import Card from './card';
@@ -47,7 +47,12 @@ export default function BankConnections() {
     onSuccess: async publicToken => {
       setError('');
       try {
-        if (updateId) { await bankRequest({ action: 'sync', itemId: updateId }); setMessage('Bank reconnected and synced.'); }
+        if (updateId) {
+          const current = await bankRequest<BankStatus>();
+          const item = current.connections.find(c => c.id === updateId);
+          if (item?.status === 'unconfigured') setConfigure(item);
+          else { await bankRequest({ action: 'sync', itemId: updateId }); setMessage('Bank reconnected and synced.'); }
+        }
         else { const item = await bankRequest<BankConnection>({ action: 'exchange', publicToken }); setConfigure(item); }
         await refresh();
       } catch (e) { setError(e instanceof Error ? e.message : 'Could not connect bank.'); }
@@ -80,53 +85,35 @@ export default function BankConnections() {
     {message && <p className="mt-4 text-sm text-green-800" role="status">{message}</p>}
     {loading && <div role="status" aria-label="Loading connected banks" className="mt-5 space-y-3"><span className="sr-only">Loading connected banks</span>{[0, 1].map(row => <div key={row} aria-hidden="true" className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4"><div className="flex items-center gap-3"><div className="bank-skeleton h-10 w-10 shrink-0 rounded-xl" /><div className="min-w-0 flex-1 space-y-2"><div className="bank-skeleton h-3.5 w-32 max-w-full rounded-full" /><div className="bank-skeleton h-2.5 w-48 max-w-full rounded-full" /></div></div><div className="mt-4 flex gap-2"><div className="bank-skeleton h-8 w-24 rounded-full" /><div className="bank-skeleton h-8 w-24 rounded-full" /></div></div>)}</div>}
     {!loading && !!status.connections.length && <ul className="mt-5 space-y-3">{status.connections.map(item => <li key={item.id} className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="break-words font-semibold">{item.name}</p><p className="mt-1.5 text-xs text-off_gray">{item.status === 'unconfigured' ? 'Choose accounts to finish connecting' : item.lastSyncedAt ? `Last synced ${new Date(item.lastSyncedAt).toLocaleString()}` : 'Ready for first sync'}</p></div><span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${item.error || item.status === 'unconfigured' ? 'bg-amber-50 text-amber-800' : 'bg-green-50 text-green-800'}`}><span className={`h-1.5 w-1.5 rounded-full ${item.error || item.status === 'unconfigured' ? 'bg-amber-500' : 'bg-green-500'}`} aria-hidden="true" />{item.error ? 'Needs attention' : item.status === 'unconfigured' ? 'Finish setup' : 'Connected'}</span></div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="break-words font-semibold">{item.name}</p><p className="mt-1.5 text-xs text-off_gray">{item.status === 'unconfigured' ? 'Choose sources to finish connecting' : item.lastSyncedAt ? `Last synced ${new Date(item.lastSyncedAt).toLocaleString()}` : 'Ready for first sync'}</p></div><span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${item.error || item.status === 'unconfigured' ? 'bg-amber-50 text-amber-800' : 'bg-green-50 text-green-800'}`}><span className={`h-1.5 w-1.5 rounded-full ${item.error || item.status === 'unconfigured' ? 'bg-amber-500' : 'bg-green-500'}`} aria-hidden="true" />{item.error ? 'Needs attention' : item.status === 'unconfigured' ? 'Finish setup' : 'Connected'}</span></div>
       {item.error && <p className="mt-2 text-sm text-red-700">{item.error}</p>}
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        {item.status === 'unconfigured' ? <button className="btn-neutral" disabled={busy} onClick={() => setConfigure(item)}>Choose accounts</button> : <button className="btn-neutral gap-2" disabled={busy} onClick={() => void act({ action: 'sync', itemId: item.id }, 'Synced the latest data available from your bank.')}><ArrowPathIcon className={`h-4 w-4 ${busy ? 'motion-safe:animate-spin' : ''}`} />Sync now</button>}
+        {item.status === 'unconfigured' ? <button className="btn-neutral" disabled={busy} onClick={() => setConfigure(item)}>Choose sources</button> : <button className="btn-neutral gap-2" disabled={busy} onClick={() => void act({ action: 'sync', itemId: item.id }, 'Synced the latest data available from your bank.')}><ArrowPathIcon className={`h-4 w-4 ${busy ? 'motion-safe:animate-spin' : ''}`} />Sync now</button>}
         <button className="btn-neutral" disabled={busy} onClick={() => void startLink(item.id)}>Reconnect</button>
-        <button className="inline-flex min-h-11 items-center justify-center rounded-full px-3 text-sm font-medium text-off_gray transition hover:bg-red-50 hover:text-red-700" disabled={busy} onClick={() => { if (window.confirm(`Disconnect ${item.name}? Existing expenses stay saved. Wallet balances will return to manual tracking. Reconnecting later consumes another trial connection.`)) void act({ action: 'disconnect', itemId: item.id }, 'Bank disconnected. Your expense history is unchanged.'); }}>Disconnect</button>
+        <button className="inline-flex min-h-11 items-center justify-center rounded-full px-3 text-sm font-medium text-off_gray transition hover:bg-red-50 hover:text-red-700" disabled={busy} onClick={() => { if (window.confirm(`Disconnect ${item.name}? Existing personal expenses stay saved. Reconnecting later consumes another trial connection.`)) void act({ action: 'disconnect', itemId: item.id }, 'Bank disconnected. Your expense history is unchanged.'); }}>Disconnect</button>
       </div>
     </li>)}</ul>}
     {!loading && !status.connections.length && !error && <div className="mt-5 flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-200 bg-gray-50/70 px-4 py-7"><LinkIcon className="h-7 w-7 text-gray-400" aria-hidden="true" /><p className="text-sm text-off_gray">No banks connected yet</p></div>}
   </Card>
-    {!!status.review.length && <div className="mt-4"><Card><h2 className="section-title">Purchases to review ({status.review.length})</h2><p className="mt-2 text-sm text-off_gray">These may match expenses you already recorded. Match an existing expense, import as a separate purchase, or ignore it. Review shows up to 100 purchases per bank at a time.</p><ul className="mt-4 divide-y divide-gray-100">{status.review.map(row => <ReviewRow key={`${row.itemId}-${row.id}`} row={row} busy={busy} act={act} />)}</ul></Card></div>}
     {configure && <ConfigureBank item={configure} close={() => setConfigure(null)} done={async () => {
-      setConfigure(null); await act({ action: 'sync', itemId: configure.id }, 'Bank connected. Posted purchases have been imported; check any matches awaiting review.');
+      setConfigure(null); await act({ action: 'sync', itemId: configure.id }, 'Bank connected. Review your transactions and add only your share.');
     }} />}
   </div>;
 }
 function ConfigureBank({ item, close, done }: { item: BankConnection; close: () => void; done: () => Promise<void> }) {
-  const { accounts } = useVault();
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError('');
     const form = new FormData(event.currentTarget);
-    const mappings = Object.fromEntries(item.accounts.map(a => [a.id, String(form.get(a.id) ?? '')]));
-    try { await bankRequest({ action: 'configure', itemId: item.id, mappings, importFrom: String(form.get('importFrom')) }); await done(); }
-    catch (e) { setError(e instanceof Error ? e.message : 'Could not save bank accounts.'); setBusy(false); }
+    const accountIds = form.getAll('sources').map(String);
+    try { await bankRequest({ action: 'configure', itemId: item.id, accountIds, importFrom: String(form.get('importFrom')) }); await done(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Could not save bank sources.'); setBusy(false); }
   }
-  return <Modal title={`Connect ${item.name}`} close={busy ? () => undefined : close}><form className="space-y-4" onSubmit={submit}>
-    <p className="text-sm text-off_gray">Match each account to the one you already track in Wallet to keep your history together. Choose a new account only if you have not added it before.</p>
-    {item.accounts.map(bank => {
-      const candidates = accounts.filter(a => !a.plaidItemId && a.type === bank.type);
-      const matching = candidates.filter(a => bank.mask && a.last4 === bank.mask);
-      return <label key={bank.id} className="field">{bank.name}{bank.mask ? ` · ${bank.mask}` : ''}<span className="text-xs font-normal text-off_gray">{bank.balanceCents === null ? 'Balance not supplied' : `${bank.type === 'credit' ? 'Amount owed' : 'Available balance'}: ${money(bank.balanceCents)}`}</span>
-        <select name={bank.id} defaultValue={matching.length === 1 ? matching[0].id : ''}><option value="">Do not connect this account</option><option value="new">Create new Wallet account</option>{candidates.map(a => <option key={a.id} value={a.id}>{accountLabel(a)}</option>)}</select>
-      </label>;
-    })}
-    <label className="field">Import purchases from<input name="importFrom" type="date" required defaultValue={today()} /></label>
-    <p className="text-sm text-off_gray">Earlier purchases stay out of spending. If you already recorded all purchases through today, choose tomorrow. Matching checks the same account and amount within three days; verify the review list. Bank-reported balances include all activity regardless of this date.</p>
+  return <Modal title={'Link ' + item.name} close={busy ? () => undefined : close}><form className="space-y-4" onSubmit={submit}>
+    <fieldset className="space-y-3"><legend className="mb-3 text-sm font-medium">Pull transactions from</legend>{item.accounts.map(bank => <label key={bank.id} className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 p-3"><input type="checkbox" name="sources" value={bank.id} defaultChecked className="h-5 min-h-0 w-5 shrink-0 accent-primary" /><span className="min-w-0 text-sm">{bank.name}{bank.mask ? ' · ' + bank.mask : ''}</span></label>)}</fieldset>
+    <label className="field">Review transactions from<input name="importFrom" type="date" required defaultValue={today()} /></label>
+    <p className="text-sm text-off_gray">Transactions before this date stay out of the review list. Bank sources are only used for importing; expenses have no payment account.</p>
     {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-    <div className="flex justify-end gap-3"><button className="btn-neutral" type="button" disabled={busy} onClick={close}>Later</button><button className="btn" disabled={busy}>{busy ? 'Connecting...' : 'Connect selected accounts'}</button></div>
+    <div className="flex justify-end gap-3"><button className="btn-neutral" type="button" disabled={busy} onClick={close}>Later</button><button className="btn" disabled={busy}>{busy ? 'Connecting...' : 'Link selected sources'}</button></div>
   </form></Modal>;
-}
-function ReviewRow({ row, busy, act }: { row: BankReview; busy: boolean; act: (body: Record<string, unknown>, message: string) => Promise<void> }) {
-  const { accounts } = useVault();
-  const [matchId, setMatchId] = useState(row.matches[0]?.id ?? '');
-  const review = (decision: string) => void act({ action: 'review', itemId: row.itemId, transactionId: row.id, decision, matchId }, 'Purchase reviewed.');
-  return <li className="space-y-3 py-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="break-words font-medium">{row.description}</p><p className="mt-1 text-xs text-off_gray">{row.date} · {accounts.find(a => a.id === row.accountId)?.name}</p></div><span className="shrink-0 font-semibold">{money(row.amountCents)}</span></div>
-    {!!row.matches.length && <label className="field">Existing expense<select value={matchId} onChange={e => setMatchId(e.target.value)}>{row.matches.map(m => <option key={m.id} value={m.id}>{m.date} · {m.description}</option>)}</select></label>}
-    <div className="flex flex-wrap gap-2">{!!row.matches.length && <button className="btn-neutral" disabled={busy || !matchId} onClick={() => review('match')}>Match expense</button>}<button className="btn-neutral" disabled={busy} onClick={() => review('import')}>Import separately</button><button className="btn-neutral" disabled={busy} onClick={() => review('ignore')}>Ignore</button></div>
-  </li>;
 }

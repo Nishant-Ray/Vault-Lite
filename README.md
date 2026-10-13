@@ -1,6 +1,6 @@
 # Vault Lite
 
-A single-user personal finance PWA, adapted from [Nishant-Ray/Vault](https://github.com/Nishant-Ray/Vault). This repository is the Next.js project root. The browser uses Firebase Authentication and Cloud Firestore. Optional Plaid connections use authenticated Next.js server routes on Vercel; no separate Rails or FastAPI service is required.
+A single-user spending PWA adapted from [Nishant-Ray/Vault](https://github.com/Nishant-Ray/Vault). This repository is the Next.js project root. Firebase provides authentication and Firestore; optional Plaid imports run in authenticated Next.js routes on Vercel. There is no Rails, FastAPI, signup page, or AI service.
 
 ## Run locally
 
@@ -11,43 +11,39 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000. The app uses email/password login for a single user, with no signup route.
+Open http://localhost:3000. Sign in with the allowed Firebase email/password user.
 
-## Features
+## Personal spending
 
-- Add, edit, and delete expenses, with payment account, category, description, and date.
-- Monthly totals, average expense, prior-month comparison, yearly chart, category percentages, and account/card breakdowns. Filter by month, card/bank account, category, and description; export filtered spending to CSV.
-- Bank and credit-card accounts with nicknames and optional last four digits. Bank balances decrease with expenses; card amounts owed increase. Set a per-bank safety buffer for low-balance alerts.
-- One-time and recurring bills with weekly, every-two-weeks, monthly, quarterly, and yearly schedules. Set the amount per payment and first scheduled date, see the next unpaid date, and filter by account or payment history. Record the actual amount, date, and paying account; each payment becomes an expense through a Firestore transaction that prevents duplicates for the same occurrence. Deleting a payment makes that occurrence unpaid again. Deleting a schedule keeps recorded expenses.
-- JSON data export, logout, responsive sidebar on desktop, bottom navigation on phones, touch-friendly forms, and keyboard-accessible dialogs.
-- Installable PWA with manifest, PNG icons, Apple home-screen metadata, service worker, and an offline fallback.
+Every expense's amount is **your personal share**, independent of which bank/card paid. A $120 dinner with a $40 share contributes $40 to spending. The $80 paid back by friends is ignored. If a friend covers your purchase and you repay them, record your own share once. True refunds of your own spending are negative expenses; reimbursements are not refunds.
 
-## Balance tracking
+Add, edit, and delete expenses without creating an account. Reports include monthly totals, prior-month comparisons, average expense, yearly charts, and category breakdowns. Filter by month, category, and description; CSV exports include your share and, when available, the original bank amount. Balances, safety buffers, account selectors, and spending-by-account reports have been removed.
 
-For **manual accounts**, an account's saved balance is its balance at the **start of the selected opening date**. Expenses dated on or after that date through today adjust it; older spending remains in reports. Editing or deleting expenses changes the computed balance. The Dashboard cash/debt cards cover all accounts; its spending filters affect spending charts, summaries, and bills.
+Bills support one-time, weekly, every-two-weeks, monthly, quarterly, and yearly schedules. Plan your share per payment, record it as a new expense, or link an existing expense without double counting. Removing a payment restores that scheduled occurrence; deleting a schedule keeps payment history. Monthly schedules clamp to the last day in shorter months without drifting. Bills do not initiate bank payments.
 
-For **Plaid-connected accounts**, Wallet and Dashboard use the latest bank-reported balance, without applying local expenses again. Bank balances can be delayed. Deposits, transfers, and statement payments are reflected by the bank rather than local expense arithmetic. Bank accounts use available balance when supplied, otherwise current balance; credit cards use current amount owed. USD checking, savings, money market, cash management, and credit-card accounts are supported. Disconnecting revokes bank access and resumes manual tracking from the last reported balance.
+## Bank transaction inbox
 
-Reconcile in Wallet after deposits, refunds, transfers, or credit-card payments. When editing an existing account, enter the **current balance** shown by your bank or card. The app resets the balance date to today and automatically accounts for today's already-logged expenses so they are not counted again. Your expense history remains intact. Credit-card statement payments are transfers rather than new spending: reconcile bank and card balances instead of recording another expense. Account type is fixed after creation; accounts with history cannot be deleted in the UI.
+**Accounts** contains only bank connection controls: linking, source selection, daily/manual sync, reconnect, and disconnect. **Spending** contains the transaction review inbox. The Accounts route remains `/wallet` so registered OAuth redirects continue to work.
 
-Amounts are stored as integer cents; currency is USD. Expenses cannot be future-dated in the entry form. Recurring bills are schedules: they do not change balances until you record a payment, and they do not initiate payments with a bank.
+Plaid source IDs remain private import configuration. Expenses and bills have **no `accountId`**. Original transaction IDs and encrypted connection IDs are retained as import provenance to prevent duplicate imports, not as payment-account relationships. No balances are saved or shown.
 
-## Bank sync
+All posted bank transactions on or after your chosen start date enter **Transactions to review**. Pending transactions are skipped. Enter your share and category before adding an expense, match an existing personal expense, or ignore the transaction. Transfers/income default to zero so statement payments, reimbursements, and deposits are not silently counted as spending. Outgoing payments for your purchases can be categorized as spending; personal refunds use negative shares. Bank categories are suggestions.
 
-Wallet includes Connect bank, account matching, an import start date, Sync now, Reconnect, Disconnect, and a review list for possible duplicate purchases. Match bank accounts to existing Wallet accounts to preserve your history. Transactions before the selected date and pending transactions are excluded. Posted purchases are imported automatically; refunds in purchase categories reduce spending. Deposits, transfers, card statement payments, loan payments, and unclassified transactions are excluded from expense reports. Verify classifications against your bank statements; add an expense manually if Plaid misclassifies or omits a purchase.
+Matching suggests manual expenses within seven days with the same positive/negative direction; the bank's full amount may differ from your logged share. Matching keeps the manual amount, description, date, category, and bill link. Future bank syncs update the original bank amount but never replace your confirmed share. Imported shares can be edited in Spending. Deleting a bank expense keeps it ignored on later syncs. If Plaid removes a confirmed transaction, an imported expense is removed; a matched manual expense is retained and detached from bank provenance.
 
-Possible duplicates have the same account and amount within three days. Review them by matching an existing expense, importing separately, or ignoring. Matches preserve manual descriptions, categories, and bill links. Deleting a bank-imported expense ignores it on future syncs without changing the bank balance. Imported expenses allow description/category edits; amount, date, and account remain supplied by the bank. In Record payment, select an already imported bank purchase to mark a bill paid without creating another expense. Importing alone does not mark a scheduled bill paid automatically.
+Daily sync runs at 10:00 UTC via Vercel Cron, retrieving data Plaid has already collected. Hobby timing can vary within the hour. Stable IDs, saved cursors, pagination retries, and connection leases prevent duplicate/concurrent imports. AES-256-GCM protects private access tokens; none are returned to the browser. No webhook is required. USD checking, savings, money market, cash management, and credit-card sources are supported.
 
-Daily sync runs at 10:00 UTC via Vercel Cron; Hobby timing can vary within that hour. Sync retrieves the latest data Plaid has collected rather than requesting an immediate refresh from the bank. No Plaid webhook is required. Stable transaction IDs, saved cursors, pagination retries, and per-connection leases prevent repeated or concurrent syncs from duplicating purchases. Private access tokens are encrypted with AES-256-GCM and never returned to the browser.
+See [PLAID_SETUP.md](PLAID_SETUP.md) for deployment and migration. Existing bank connections and import decisions can be preserved; you do not need to re-link them.
 
-Deployment variables and the remaining console steps are in [PLAID_SETUP.md](PLAID_SETUP.md). Manual tracking remains available without Plaid credentials.
+## Existing Firebase data
 
-The first payment date anchors the recurring schedule. Monthly and quarterly bills keep the original day, using the last day of shorter months. A yearly bill starting February 29 falls on February 28 in non-leap years and February 29 in leap years. Start a schedule at your next unpaid payment so you do not need to import old payments. Existing bills remain one-time bills until you edit their frequency. Monthly commitment totals are estimates: weekly bills use 52 payments per year and every-two-weeks bills use 26.
+Publish the updated `firestore.rules` and deploy this version, then use **Settings → Back up & migrate existing data**. It downloads the old ledger as JSON and removes obsolete account references while preserving spending amounts, bills, bank tokens, cursors, and decisions.
 
-## Data layout
+After verifying the backup and history, delete only `users/{yourUid}/accounts` from Firestore. Keep `expenses`, `bills`, `plaidItems` and its transactions, `plaidInstitutions`, `plaidLinkSessions`, the user document, and the Authentication user. Old expenses retain their old amounts until you edit them to your personal share.
+
+## Data and PWA
 
 ```text
-users/{yourUid}/accounts/{accountId}
 users/{yourUid}/expenses/{expenseId}
 users/{yourUid}/bills/{billId}
 users/{yourUid}/plaidItems/{itemId}                       # server only
@@ -56,16 +52,9 @@ users/{yourUid}/plaidInstitutions/{institutionId}         # server only
 users/{yourUid}/plaidLinkSessions/active                  # server only
 ```
 
-The app uses realtime Firestore subscriptions with no composite indexes required. Firebase Auth restores the browser session; Firestore rules secure data even if client route guards are bypassed. No persistent Firestore offline cache is enabled. The service worker only caches public icons and the offline page; financial pages and Firebase responses are not cached by it. Online connectivity is required to load and change data.
+Realtime Firestore subscriptions require no composite indexes. Rules and server routes restrict access to the allowed UID. Financial pages, API responses, and Firebase requests are not cached by the service worker; online access is required.
 
-## Production and PWA
-
-```powershell
-npm run build
-npm run start
-```
-
-Deploy as a standard Next.js app (for example on Vercel). Use HTTPS for installation on phones. On iOS, open in Safari → Share → Add to Home Screen. On Android, use Chrome → Install app / Add to Home screen. Desktop Chrome and Edge offer an install button. The service worker registers only in production; `npm run dev` is for development. Actual device installation should be checked on your deployed HTTPS domain.
+For production, run `npm run build` and `npm run start`, or deploy to Vercel. Install from Safari's Share → Add to Home Screen on iOS, or Chrome's Install app on Android. PWA installation requires HTTPS; the service worker registers in production only.
 
 ## Verification
 
@@ -74,8 +63,8 @@ npm run typecheck
 npm run build
 ```
 
-Live login and Firestore writes require your Firebase project and deployed rules.
+Live bank authorization and Firestore writes require your configured project and published rules.
 
 ## Reused from Vault
 
-Source inspected at commit `b4cd7de7798378fcdbfe36a23626bee41bf7215b`. The original Tailwind theme, base global styles, card component, chart colors, and TypeScript configuration were copied. The Chart.js spending graph was adapted to Firebase data. Dashboard, wallet, expense, and bill workflows retain the original structure and have been rebuilt around the Firebase schema, grouped account selectors, and responsive layouts. Tailwind was upgraded to v4 while retaining the original theme. Shared residences, AI, backend API wrappers, JWT middleware, and signup were omitted.
+Original source inspected at commit `b4cd7de7798378fcdbfe36a23626bee41bf7215b`. The Tailwind theme, base styling, card component, chart colors, and TypeScript configuration were adapted; the spending graph now uses Firestore expenses. Outfit and DM Sans preserve the original typography. Shared residences, AI, backend wrappers, JWT middleware, and signup were omitted.

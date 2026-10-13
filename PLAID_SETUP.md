@@ -37,22 +37,32 @@ OAuth may return to Safari rather than the installed iPhone PWA. The redirect pr
 
 ## 3. Publish the updated Firestore rules
 
-Copy this repository's `firestore.rules` into **Firebase → Firestore Database → Rules**, verify the existing owner UID is correct, and click **Publish** before connecting banks. The updated rules deny client access to tokens and sync state, prevent client changes to bank balances and imported transaction metadata, and still allow manual expense/account/bill workflows. No additional indexes are required.
+Copy this repository's `firestore.rules` into **Firebase → Firestore Database → Rules**, verify the existing owner UID is correct, and click **Publish**. The rules allow personal expenses and bills without any account reference, deny new legacy accounts, and protect bank provenance and private tokens. Imported personal shares are edited through authenticated server routes. No additional indexes are required.
 
 ## 4. Commit, push, and deploy
 
 Push the integration to the GitHub branch Vercel uses for Production, then deploy with the variables above. The included `vercel.json` schedules `/api/cron/plaid-sync` once daily at 10:00 UTC (6 a.m. Eastern during daylight saving time, 5 a.m. during standard time). Vercel supplies `CRON_SECRET` as the authorization header. Hobby cron timing can vary within the hour. Daily sync runs without the app being open.
 
-Use **Vercel → Project → Settings → Cron Jobs** to check the job is enabled and review invocations. Failures are also shown per bank in Wallet. Firebase reads/writes and Vercel function usage count toward those services' own quotas independently of Plaid's trial allowance.
+Use **Vercel → Project → Settings → Cron Jobs** to check the job is enabled and review invocations. Failures are also shown per bank in Accounts. Firebase reads/writes and Vercel function usage count toward those services' own quotas independently of Plaid's trial allowance. Daily sync fills the review inbox; it does not add full bank charges to your personal spending automatically.
 
-## 5. Connect from Wallet
+## 5. Connect from Accounts
 
 1. Open the deployed app and log in.
-2. Open **Wallet → Connect bank** and finish Plaid authorization.
-3. Match each bank account/card to its existing Wallet account. Select **Create new Wallet account** only for an account not already tracked. Unselected accounts are not synced.
-4. Choose the import start date. If everything through today was manually recorded, choose tomorrow. Older spending is not imported; bank balances still reflect all activity.
-5. Click **Connect selected accounts**. The app attempts the initial sync. Banks may need time to prepare transactions; use **Sync now** later if necessary.
-6. Check **Purchases to review** for possible manual duplicates. Reconcile your first import against your bank statement.
+2. Open **Accounts → Connect bank** and finish Plaid authorization. The existing `/wallet` URL is retained for bank redirects.
+3. Select the bank/card sources you want Plaid to read. These only configure the import; no Wallet ledger accounts are created and no balances are stored.
+4. Choose the first date to review transactions. If you already recorded them manually, you can match existing expenses or choose tomorrow to skip the past.
+5. Click **Link selected sources**. Banks may need time to prepare transactions; use **Sync now** later if necessary.
+6. Open **Spending → Transactions to review** and enter **My share** and **Add my share**, **Match expense** already logged, or **Ignore**. Match suggestions include personal expenses within seven days with the same positive/negative direction; amounts can differ. Only a deliberate match combines entries.
+
+A $120 dinner with a $40 personal share contributes $40 to reports. Ignore the $80 Venmo/Zelle reimbursement; it is not a refund of your own spending. An outgoing Venmo/Zelle repayment for your own purchase can be added with your share and a spending category. Ignore credit-card statement payments, salary, and transfers between your own accounts. Those transfers default to a zero share. True refunds of personal spending use a negative share. All posted transactions wait for review; pending transactions are not imported. You can edit the personal share later, and future syncs preserve it.
+
+## Upgrade existing data
+
+After publishing the new rules and deploying this version, open **Settings → Back up & migrate existing data**. The app downloads `vault-lite-before-migration.json` (legacy accounts, expenses, and bills) and then removes legacy `accountId` fields from expenses/bills and obsolete private account mappings. The operation is repeatable and preserves amounts, recurring schedules, recorded bill links, encrypted bank tokens, sync cursors, ignored transactions, and selected bank sources. It does not delete any accounts or expenses. If interrupted, run it again.
+
+Confirm the backup file was saved and check existing history. The migration preserves old amounts; change previously imported full charges to your actual share in Spending.
+
+You may then delete only **`users/{yourUid}/accounts`** in Firestore, including its old balance records. Keep the user document, `expenses`, `bills`, `plaidItems` (including transactions), `plaidInstitutions`, `plaidLinkSessions`, and your Firebase Authentication user. Deleting bank collections could lose connections or import decisions and consume trial slots when re-linking. No environment variables or encryption keys need to change.
 
 Use **Reconnect** for an existing bank that needs renewed authorization, rather than linking it again. This app allows one connection per institution. Removing a Production connection does not restore a Plaid trial slot; duplicates can consume slots even if the app immediately revokes them.
 

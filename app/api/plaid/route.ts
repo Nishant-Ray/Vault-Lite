@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { ApiError, requireOwner } from '@/app/lib/server/firebase-admin';
 import { safeBankError } from '@/app/lib/server/plaid';
 import { bankStatus, configureBank, createBankLink, disconnectBank, editImportedExpense, exchangeBank, ignoreImportedExpense, linkBankBillPayment, resumeBankLink, reviewBankTransaction, syncBank } from '@/app/lib/server/bank-service';
+import { exportLegacyData, migratePersonalSpending } from '@/app/lib/server/migration';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,13 +22,15 @@ export async function POST(request: Request) {
       case 'link': return json(await createBankLink(uid, body.itemId));
       case 'resume': return json(await resumeBankLink(uid));
       case 'exchange': return json(await exchangeBank(uid, body.publicToken));
-      case 'configure': await configureBank(uid, body.itemId, body.mappings, body.importFrom); return json({ ok: true });
+      case 'configure': await configureBank(uid, body.itemId, body.accountIds, body.importFrom); return json({ ok: true });
       case 'sync': return json(await syncBank(uid, body.itemId));
       case 'disconnect': await disconnectBank(uid, body.itemId); return json({ ok: true });
-      case 'review': await reviewBankTransaction(uid, body.itemId, body.transactionId, body.decision, body.matchId); return json({ ok: true });
+      case 'review': await reviewBankTransaction(uid, body.itemId, body.transactionId, body.decision, body.matchId, body.amountCents, body.category); return json({ ok: true });
       case 'ignore-expense': await ignoreImportedExpense(uid, body.expenseId); return json({ ok: true });
-      case 'edit-expense': await editImportedExpense(uid, body.expenseId, body.description, body.category); return json({ ok: true });
+      case 'edit-expense': await editImportedExpense(uid, body.expenseId, body.description, body.category, body.amountCents, body.date); return json({ ok: true });
       case 'link-bill': await linkBankBillPayment(uid, body.billId, body.dueDate, body.expenseId); return json({ ok: true });
+      case 'export-legacy': return json(await exportLegacyData(uid));
+      case 'migrate': return json(await migratePersonalSpending(uid));
       default: throw new ApiError('Unknown bank request.');
     }
   } catch (e) { return failure(e); }

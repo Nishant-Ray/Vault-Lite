@@ -9,12 +9,12 @@ import type { Expense } from '@/app/lib/types';
 import { outfit } from './fonts';
 Chart.register(LinearScale, CategoryScale, BarElement, Tooltip);
 Chart.defaults.font.family = outfit.style.fontFamily;
-export default function SpendingGraph({ expenses, year, accountId }: { expenses: Expense[]; year: string; accountId: string }) {
+export default function SpendingGraph({ expenses, year }: { expenses: Expense[]; year: string }) {
   const labels = Array.from({ length: 12 }, (_, i) => new Date(2020, i).toLocaleDateString('en-US', { month: 'short' }));
   const options: ChartOptions<'bar'> = { responsive: true, maintainAspectRatio: false,
     scales: { y: { beginAtZero: true, ticks: { maxTicksLimit: 6, callback: value => money(Number(value)) } }, x: { grid: { display: false } } },
     plugins: { tooltip: { callbacks: { label: context => `Spent: ${money(Number(context.raw))}` } } },
   };
-  const data = { labels, datasets: [{ label: 'Total spent', data: labels.map((_, i) => total(filterExpenses(expenses, `${year}-${String(i + 1).padStart(2, '0')}`, accountId))), backgroundColor: colors.accent, borderRadius: 5 }] };
+  const data = { labels, datasets: [{ label: 'My spending', data: labels.map((_, i) => total(filterExpenses(expenses, `${year}-${String(i + 1).padStart(2, '0')}`))), backgroundColor: colors.accent, borderRadius: 5 }] };
   return <div className="mt-5 h-60 min-w-0" role="img" aria-label={`Monthly spending chart for ${year}`}><Bar options={options} data={data} /></div>;
 }

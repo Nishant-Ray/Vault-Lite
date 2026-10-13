@@ -9,33 +9,20 @@ service cloud.firestore {
     function cents(value) { return value is int && value >= 0 && value <= 9007199254740991; }
     function date(value) { return value is string && value.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); }
     function text(value) { return value is string && value.size() > 0 && value.size() <= 200; }
-    function hasAccount(uid, data) {
-      return data.accountId is string && existsAfter(/databases/$(database)/documents/users/$(uid)/accounts/$(data.accountId));
-    }
     match /users/{uid}/accounts/{id} {
-      allow read: if owner(uid);
-      allow delete: if owner(uid) && !('plaidItemId' in resource.data);
-      // Only the authenticated server may create or modify bank metadata.
-      allow update: if owner(uid) && ('plaidItemId' in resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'minimumCents'])
-        && text(request.resource.data.name) && cents(request.resource.data.minimumCents);
-      allow create, update: if owner(uid)
-        && (!exists(/databases/$(database)/documents/users/$(uid)/accounts/$(id)) || !('plaidItemId' in resource.data))
-        && request.resource.data.keys().hasOnly(['id', 'name', 'type', 'last4', 'balanceCents', 'balanceDate', 'minimumCents'])
-        && request.resource.data.id == id && text(request.resource.data.name)
-        && request.resource.data.type in ['bank', 'credit']
-        && request.resource.data.last4 is string && request.resource.data.last4.matches('^([0-9]{4})?$')
-        && request.resource.data.balanceCents is int && request.resource.data.balanceCents >= -9007199254740991 && request.resource.data.balanceCents <= 9007199254740991
-        && cents(request.resource.data.minimumCents) && date(request.resource.data.balanceDate);
+      // Legacy records may be backed up/deleted, but are no longer used.
+      allow read, delete: if owner(uid);
+      allow create, update: if false;
     }
     match /users/{uid}/expenses/{id} {
       allow read: if owner(uid);
       allow delete: if owner(uid) && !('plaidTransactionId' in resource.data);
       allow create, update: if owner(uid)
         && (!exists(/databases/$(database)/documents/users/$(uid)/expenses/$(id)) || !('plaidTransactionId' in resource.data))
-        && request.resource.data.keys().hasOnly(['id', 'accountId', 'amountCents', 'date', 'category', 'description', 'billId', 'billDueDate'])
-        && request.resource.data.id == id && hasAccount(uid, request.resource.data)
-        && cents(request.resource.data.amountCents) && request.resource.data.amountCents > 0
+        && request.resource.data.keys().hasOnly(['id', 'amountCents', 'date', 'category', 'description', 'billId', 'billDueDate'])
+        && request.resource.data.id == id
+        && request.resource.data.amountCents is int && request.resource.data.amountCents != 0
+        && request.resource.data.amountCents >= -9007199254740991 && request.resource.data.amountCents <= 9007199254740991
         && date(request.resource.data.date) && text(request.resource.data.category) && text(request.resource.data.description)
         && ((!('billId' in request.resource.data) && !('billDueDate' in request.resource.data))
           || (text(request.resource.data.billId) && date(request.resource.data.billDueDate)));
@@ -54,8 +41,8 @@ service cloud.firestore {
     match /users/{uid}/bills/{id} {
       allow read, delete: if owner(uid);
       allow create, update: if owner(uid)
-        && request.resource.data.keys().hasOnly(['id', 'accountId', 'amountCents', 'dueDate', 'category', 'name', 'paid', 'frequency'])
-        && request.resource.data.id == id && hasAccount(uid, request.resource.data)
+        && request.resource.data.keys().hasOnly(['id', 'amountCents', 'dueDate', 'category', 'name', 'paid', 'frequency'])
+        && request.resource.data.id == id
         && cents(request.resource.data.amountCents) && request.resource.data.amountCents > 0
         && date(request.resource.data.dueDate) && text(request.resource.data.category) && text(request.resource.data.name)
         && request.resource.data.paid is bool

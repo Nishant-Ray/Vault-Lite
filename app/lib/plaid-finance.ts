@@ -29,7 +29,14 @@ export function bankCents(amount: number) {
   if (!Number.isFinite(amount) || !Number.isSafeInteger(cents)) throw new Error('Invalid bank amount.');
   return cents;
 }
-export function possibleMatches(expenses: Expense[], accountId: string, amountCents: number, date: string) {
-  return expenses.filter(e => !e.plaidTransactionId && e.accountId === accountId && e.amountCents === amountCents
-    && Math.abs(Date.parse(`${e.date}T12:00:00Z`) - Date.parse(`${date}T12:00:00Z`)) <= 3 * 86400000);
+export function bankKind(transaction: Transaction): 'purchase' | 'refund' | 'transfer' | 'income' {
+  if (transaction.personal_finance_category?.primary === 'INCOME') return 'income';
+  if (!isBankSpending(transaction)) return 'transfer';
+  return transaction.amount < 0 ? 'refund' : 'purchase';
+}
+export function possibleMatches(expenses: Expense[], amountCents: number, date: string) {
+  // The logged share can differ from the full charge. Suggest, never auto-match.
+  return expenses.filter(e => !e.plaidTransactionId && Math.sign(e.amountCents) === Math.sign(amountCents)
+    && Math.abs(Date.parse(`${e.date}T12:00:00Z`) - Date.parse(`${date}T12:00:00Z`)) <= 7 * 86400000)
+    .sort((a, b) => Math.abs(a.amountCents - amountCents) - Math.abs(b.amountCents - amountCents));
 }
