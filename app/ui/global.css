@@ -6,6 +6,7 @@
   h1, h2, .font-display { font-family: var(--font-dm-sans), sans-serif; }
   button, a, input, select { -webkit-tap-highlight-color: transparent; }
   input, select { @apply min-h-11 w-full min-w-0 rounded-xl border border-gray-300 bg-white px-3 py-2 text-base text-off_black; }
+  select:not([multiple]) { appearance: none; padding-right: 2.75rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .9rem center; background-size: 1rem; }
   button:disabled { @apply cursor-not-allowed opacity-50; }
   button:not(:disabled) { @apply cursor-pointer; }
   :focus-visible { outline: 2px solid #b91c1c; outline-offset: 3px; }
@@ -29,6 +30,8 @@
   .modal::backdrop { background: rgb(15 23 42 / .45); backdrop-filter: blur(3px); }
   .bank-skeleton { position: relative; overflow: hidden; background: #e5e7eb; }
   .bank-skeleton::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgb(255 255 255 / .75), transparent); animation: bank-shimmer 1.6s ease-in-out infinite; }
+  .expense-drag-handle:not(:disabled) { cursor: grab; }
+  .expense-drag-handle:not(:disabled):active { cursor: grabbing; }
 }
 @keyframes bank-shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

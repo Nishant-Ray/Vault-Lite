@@ -19,6 +19,8 @@ Every expense's amount is **your personal share**, independent of which bank/car
 
 Add, edit, and delete expenses without creating an account. Reports include monthly totals, prior-month comparisons, average expense, yearly charts, and category breakdowns. Filter by month, category, and description; CSV exports include your share and, when available, the original bank amount. Balances, safety buffers, account selectors, and spending-by-account reports have been removed.
 
+Spending emphasizes the selected month, with a separate year filter and an All months option for a full year. Expense history defaults to oldest first unless an order has already been saved for that year. Choose alphabetical/newest order, or drag a handle with mouse or touch to save a custom order. Keyboard users can press Space, use the arrow keys, and press Space again to drop. Order is saved per year in `users/{yourUid}/spendingOrders/{year}` and restored across sessions/devices. Filtered reordering preserves hidden entries; CSV exports follow the visible order. Publish the updated Firestore rules to enable saving these preferences.
+
 Bills support one-time, weekly, every-two-weeks, monthly, quarterly, and yearly schedules. Plan your share per payment, record it as a new expense, or link an existing expense without double counting. Removing a payment restores that scheduled occurrence; deleting a schedule keeps payment history. Monthly schedules clamp to the last day in shorter months without drifting. Bills do not initiate bank payments.
 
 ## Bank transaction inbox
